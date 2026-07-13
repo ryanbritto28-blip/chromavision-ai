@@ -14,7 +14,7 @@ CORS(app)
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
-MODELO       = "llama3-8b-8192"   # Rápido, gratuito, ótimo em português
+MODELO       = "llama-3.1-8b-instant"   # Rápido, gratuito, ótimo em português
 PORTA        = int(os.environ.get("PORT", 5000))
 
 SYSTEM_PROMPT = """Você é a ChromaBot, assistente virtual oficial do ChromaVision.
