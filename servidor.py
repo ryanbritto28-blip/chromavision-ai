@@ -1,7 +1,6 @@
 """
 ChromaVision AI - ChromaBot
-Arquitetura: Flask (Render.com) + Groq API (IA gratuita na nuvem)
-Respostas em ~2 segundos, sem Ollama, sem computador ligado.
+Arquitetura: Flask (Render.com) + Groq API
 """
 
 from flask import Flask, request, jsonify
@@ -14,7 +13,7 @@ CORS(app)
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
-MODELO       = "llama-3.1-8b-instant"   # Rápido, gratuito, ótimo em português
+MODELO       = "llama-3.3-70b-versatile"  # Modelo estável e atual da Groq
 PORTA        = int(os.environ.get("PORT", 5000))
 
 SYSTEM_PROMPT = """Você é a ChromaBot, assistente virtual oficial do ChromaVision.
@@ -43,16 +42,40 @@ Contato: ChromaVision.project@gmail.com
 1. Simulação Protanopia (dificuldade com vermelho)
 2. Simulação Deuteranopia (dificuldade com verde)
 3. Simulação Tritanopia (dificuldade com azul)
-4. Correção Daltonize (ajusta cores para facilitar distinção — não cura o daltonismo)
+4. Correção Daltonize (ajusta cores para facilitar distinção)
 5. Upload de imagens da galeria
 6. Modo escuro/claro
+7. Análise de cores com legenda automática ao carregar uma imagem
+
+=== ANÁLISE DE CORES ===
+Quando o usuário carrega uma imagem, o ChromaVision identifica as cores predominantes
+e a ChromaBot gera uma legenda explicando:
+- Qual é a cor predominante e o que ela representa visualmente
+- Como essa cor seria percebida por uma pessoa sem daltonismo (visão normal)
+- Como ela pode ser afetada nos tipos de daltonismo (protanopia, deuteranopia, tritanopia)
 
 === SOBRE DALTONISMO ===
 - Condição que afeta a percepção das cores. Não é doença.
 - Sem cura na maioria dos casos. Origem genética. Mais comum em homens.
 - Cerca de 300 milhões de pessoas no mundo.
-- Protanopia: cones do vermelho. Deuteranopia: cones do verde (mais comum).
-- Tritanopia: cones do azul (mais rara). Acromatopsia: sem cores (muito rara).
+- Protanopia: ausência dos cones do vermelho — vermelho parece escuro/preto.
+- Deuteranopia: ausência dos cones do verde (mais comum) — verde e vermelho se confundem.
+- Tritanopia: ausência dos cones do azul (mais rara) — azul e verde se confundem.
+- Acromatopsia: ausência total de cores (muito rara).
+
+=== PERCEPÇÃO DAS CORES PARA VISÃO NORMAL ===
+- Vermelho: cor quente, associada a energia, alerta e paixão
+- Laranja: cor vibrante, associada a criatividade e entusiasmo
+- Amarelo: cor luminosa, associada a alegria e atenção
+- Verde: cor natural, associada a natureza, equilíbrio e saúde
+- Azul: cor fria, associada a tranquilidade, confiança e profundidade
+- Roxo: cor nobre, associada a criatividade e mistério
+- Rosa: cor suave, associada a delicadeza e afeto
+- Marrom: cor terrosa, associada a estabilidade e naturalidade
+- Preto: ausência de luz, associado a elegância e sofisticação
+- Branco: presença de toda luz, associado a pureza e leveza
+- Cinza: tom neutro, associado a equilíbrio e discrição
+- Ciano: tom fresco, associado a clareza e modernidade
 
 === DICAS PARA DESIGNERS ===
 - Nunca use só cor para diferenciar informações. Adicione ícones ou padrões.
@@ -95,9 +118,14 @@ def perguntar_ao_modelo(pergunta: str) -> str:
     except requests.exceptions.Timeout:
         return "⚠️ A IA demorou para responder. Tente novamente."
     except requests.exceptions.HTTPError as e:
-        if resp.status_code == 401:
-            return "⚠️ Chave da API inválida. Verifique a configuração."
-        return f"⚠️ Erro na API: {str(e)}"
+        codigo = resp.status_code if resp else "?"
+        if codigo == 401:
+            return "⚠️ Chave da API inválida. Verifique a configuração no Render."
+        if codigo == 404:
+            return "⚠️ Modelo não encontrado. Entre em contato com o suporte."
+        if codigo == 429:
+            return "⚠️ Limite de requisições atingido. Tente em alguns segundos."
+        return f"⚠️ Erro na API ({codigo}). Tente novamente."
     except Exception as e:
         return f"⚠️ Erro inesperado: {str(e)}"
 
@@ -110,8 +138,8 @@ def chat():
     pergunta = dados["pergunta"].strip()
     if not pergunta:
         return jsonify({"erro": "Pergunta vazia."}), 400
-    if len(pergunta) > 500:
-        return jsonify({"erro": "Máximo 500 caracteres."}), 400
+    if len(pergunta) > 800:
+        return jsonify({"erro": "Máximo 800 caracteres."}), 400
     return jsonify({"resposta": perguntar_ao_modelo(pergunta)})
 
 
@@ -132,7 +160,6 @@ def raiz():
 
 if __name__ == "__main__":
     if not GROQ_API_KEY:
-        print("\n  ⚠️  GROQ_API_KEY não definida.")
-        print("  Defina a variável de ambiente antes de iniciar.\n")
+        print("\n  ⚠️  GROQ_API_KEY não definida.\n")
     print(f"\n  ChromaBot rodando em http://localhost:{PORTA}\n")
     app.run(host="0.0.0.0", port=PORTA, debug=False)
