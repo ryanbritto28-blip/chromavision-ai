@@ -6,7 +6,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-app  = Flask(__name__)
+app   = Flask(__name__)
 CORS(app)
 
 API_KEY = os.environ.get("OPENAI_API_KEY", "")
@@ -37,9 +37,7 @@ CORES PARA VISÃO NORMAL:
 - Vermelho: cor quente, energia e alerta
 - Verde: cor natural, saúde e equilíbrio
 - Azul: cor fria, tranquilidade e confiança
-- Amarelo: cor luminosa, alegria e atenção
-- Laranja: vibração e criatividade
-- Roxo: nobreza e mistério"""
+- Amarelo: cor luminosa, alegria e atenção"""
 
 
 def perguntar(pergunta):
@@ -47,14 +45,15 @@ def perguntar(pergunta):
         log.error("OPENAI_API_KEY ausente")
         return "⚠️ Chave de API não configurada."
     try:
-        log.info(f"Enviando para OpenAI: {pergunta[:80]}")
+        log.info(f"Enviando para OpenAI. Modelo: {MODELO}")
         r = requests.post(URL,
             headers={"Authorization": f"Bearer {API_KEY}",
                      "Content-Type": "application/json"},
             json={"model": MODELO,
                   "messages": [{"role": "system", "content": SYSTEM},
                                 {"role": "user",   "content": pergunta}],
-                  "max_tokens": 300, "temperature": 0.7},
+                  "max_tokens": 300,
+                  "temperature": 0.7},
             timeout=30)
         log.info(f"OpenAI status: {r.status_code}")
         log.info(f"OpenAI body: {r.text[:300]}")
@@ -63,7 +62,7 @@ def perguntar(pergunta):
     except requests.exceptions.Timeout:
         return "⚠️ A IA demorou para responder. Tente novamente."
     except requests.exceptions.HTTPError:
-        log.error(f"HTTP {r.status_code}: {r.text[:200]}")
+        log.error(f"HTTP {r.status_code}: {r.text[:300]}")
         return f"⚠️ Erro {r.status_code}. Verifique a chave da API."
     except Exception as e:
         log.error(f"Exceção: {e}")
@@ -73,17 +72,19 @@ def perguntar(pergunta):
 @app.route("/chat", methods=["POST"])
 def chat():
     dados = request.get_json()
-    log.info(f"/chat recebido: {dados}")
-    if not dados or not dados.get("pergunta","").strip():
+    log.info(f"/chat recebido: {str(dados)[:100]}")
+    if not dados or not dados.get("pergunta", "").strip():
         return jsonify({"erro": "Pergunta vazia."}), 400
     return jsonify({"resposta": perguntar(dados["pergunta"].strip())})
 
 
 @app.route("/status")
 def status():
-    return jsonify({"servidor": "online",
-                    "api": "configurada" if API_KEY else "sem chave",
-                    "modelo": MODELO})
+    return jsonify({
+        "servidor": "online",
+        "api": "configurada" if API_KEY else "sem chave",
+        "modelo": MODELO
+    })
 
 
 @app.route("/")
