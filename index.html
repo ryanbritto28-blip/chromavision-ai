@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ChromaVision - Acessibilidade Visual</title>
+
+    <!-- ===== PWA: Manifest e ícones ===== -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b0f19">
+
+    <!-- ===== PWA: iOS (Safari "Adicionar à Tela de Início") ===== -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ChromaVision">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <!-- ===== PWA: Android (Chrome) ===== -->
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <style>
+        /* --- VARIÁVEIS DE COR (Modo Claro/Escuro) --- */
+        :root {
+            --bg-body: #0b0f19;
+            --bg-card: #111827;
+            --bg-input: #1f2937;
+            --border-color: #1f2937;
+            --text-main: #f3f4f6;
+            --text-sub: #9ca3af;
+            --border-dashed: #3b82f6;
+        }
+
+        .light-mode {
+            --bg-body: #f3f4f6;
+            --bg-card: #ffffff;
+            --bg-input: #f9fafb;
+            --border-color: #e5e7eb;
+            --text-main: #111827;
+            --text-sub: #4b5563;
+            --border-dashed: #2563eb;
+        }
+
+        /* Reset Geral */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        html, body {
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            padding-top: max(20px, env(safe-area-inset-top));
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+            overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* --- BARRA DE NAVEGAÇÃO --- */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: calc(60px + env(safe-area-inset-top));
+            padding-top: env(safe-area-inset-top);
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            display: none; /* Ativado via JS pós-login */
+            justify-content: space-between;
+            align-items: center;
+            padding-left: 20px;
+            padding-right: 20px;
+            z-index: 100;
+        }
+        .nav-btn {
+            background: none;
+            border: none;
+            color: var(--text-main);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .nav-btn:hover { background-color: var(--bg-input); }
+        .nav-title { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.5px; }
+
+        /* --- MENUS LATERAIS (SIDEBARS) --- */
+        .sidebar {
+            position: fixed;
+            top: calc(60px + env(safe-area-inset-top));
+            height: calc(100vh - 60px - env(safe-area-inset-top));
+            width: 280px;
+            background-color: var(--bg-card);
+            border-color: var(--border-color);
+            border-style: solid;
+            z-index: 90;
+            transition: transform 0.3s ease;
+            padding: 24px;
+        }
+        #menu-esquerdo { left: 0; border-right-width: 1px; transform: translateX(-100%); }
+        #menu-direito { right: 0; border-left-width: 1px; transform: translateX(100%); }
+        .sidebar.open { transform: translateX(0) !important; }
+        
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px;
+            color: var(--text-main);
+            text-decoration: none;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .menu-item:hover { background-color: var(--bg-input); }
+        
+        .config-box {
+            margin-top: 10px; padding: 12px;
+            background-color: var(--bg-input); border-radius: 8px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .toggle-btn {
+            background-color: #3b82f6; color: white; border: none;
+            padding: 6px 12px; border-radius: 6px; cursor: pointer;
+            font-size: 0.85rem; font-weight: bold;
+        }
+        .toggle-btn:hover { background-color: #2563eb; }
+
+        .perfil-info {
+            background-color: var(--bg-input); padding: 16px;
+            border-radius: 12px; margin-bottom: 20px;
+        }
+        .perfil-info p { font-size: 0.9rem; color: var(--text-sub); margin-bottom: 4px; }
+        .perfil-info strong { color: var(--text-main); word-break: break-all; }
+
+        /* --- TELA DE LOGIN --- */
+        #tela-login { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 400px; }
+        .login-card {
+            background-color: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 24px; width: 100%; padding: 32px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-sub); }
+        .form-group input {
+            width: 100%; padding: 14px; background-color: var(--bg-input);
+            border: 1px solid var(--border-color); border-radius: 12px;
+            color: var(--text-main); font-size: 1rem; outline: none;
+        }
+        .btn-principal {
+            width: 100%; background-color: #3b82f6; color: white; border: none; padding: 14px;
+            font-size: 1rem; font-weight: 600; border-radius: 12px; cursor: pointer;
+        }
+        .btn-principal:hover { background-color: #2563eb; }
+
+        /* --- ELEMENTOS DO TÍTULO --- */
+        .header-container { position: relative; margin-bottom: 40px; padding: 20px; text-align: center; }
+        .circulo-cromatico {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 160px; height: 160px; border-radius: 50%;
+            background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+            filter: blur(30px); opacity: 0.4; z-index: 1;
+        }
+        h1 { font-size: 3rem; font-weight: 800; letter-spacing: -1px; position: relative; z-index: 2; text-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .subtitle { color: var(--text-sub); font-size: 1.1rem; margin-top: 10px; position: relative; z-index: 2; }
+
+        /* --- INTERFACE DO APLICATIVO --- */
+        #tela-app { display: none; width: 100%; max-width: 700px; margin-top: 80px; text-align: center; }
+        .app-card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 24px; padding: 32px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+        .upload-zone {
+            border: 2px dashed var(--border-dashed); background-color: var(--bg-input);
+            border-radius: 16px; padding: 40px 20px; text-align: center; cursor: pointer; margin-bottom: 24px;
+        }
+        .upload-icon { font-size: 2rem; margin-bottom: 12px; display: inline-block; }
+        .upload-zone p { color: var(--text-sub); font-size: 1rem; }
+
+        /* Grid de Botões */
+        .filter-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px; }
+        .btn-filter {
+            background-color: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color);
+            padding: 14px; font-size: 0.95rem; font-weight: 600; border-radius: 12px; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-filter:hover { border-color: var(--text-sub); }
+        .btn-filter.active { background-color: #3b82f6; color: white; border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
+        .btn-reset { grid-column: span 2; background-color: #ef4444; border-color: #ef4444; color: white; }
+        .btn-reset:hover { background-color: #dc2626; border-color: #dc2626; }
+
+        /* Preview Imagem */
+        .preview-box { position: relative; border-radius: 14px; overflow: hidden; background-color: var(--bg-body); border: 1px solid var(--border-color); display: flex; justify-content: center; align-items: center; max-height: 450px; min-height: 200px; }
+        .processing-overlay {
+            position: absolute;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.55);
+            color: #ffffff;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 20px;
+            z-index: 5;
+        }
+        img { max-width: 100%; max-height: 450px; object-fit: contain; display: none; }
+        .placeholder-text { color: var(--text-sub); padding: 40px; }
+
+        /* Filtros SVG aplicados via classes */
+        .protanopia { filter: url(#protanopia-filter); }
+        .deuteranopia { filter: url(#deuteranopia-filter); }
+        .tritanopia { filter: url(#tritanopia-filter); }
+
+        /* --- PAINEL DE ANÁLISE DE CORES --- */
+        .color-analysis-panel {
+            display: none;
+            margin-top: 16px;
+            background-color: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 16px;
+            animation: fadeIn 0.4s ease;
+        }
+        .color-analysis-panel.visible { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .color-analysis-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+        }
+
+        .color-swatches {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .color-swatch {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 7px 12px;
+        }
+
+        .swatch-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .swatch-info { line-height: 1.3; }
+        .swatch-name { font-size: 0.82rem; font-weight: 600; color: var(--text-main); }
+        .swatch-pct  { font-size: 0.72rem; color: var(--text-sub); }
+
+        .ai-legenda {
+            background-color: var(--bg-card);
+            border-left: 3px solid #7c3aed;
+            border-radius: 0 10px 10px 0;
+            padding: 12px 14px;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            line-height: 1.6;
+            position: relative;
+        }
+
+        .ai-legenda-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #7c3aed;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+
+        .ai-legenda-loading {
+            color: var(--text-sub);
+            font-style: italic;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .spinner {
+            width: 14px; height: 14px;
+            border: 2px solid var(--border-color);
+            border-top-color: #7c3aed;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            flex-shrink: 0;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- JANELA MODAL (ASSINATURAS) --- */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.6); display: none; justify-content: center;
+            align-items: center; z-index: 200; backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background-color: var(--bg-card); border: 1px solid var(--border-color);
+            padding: 32px; border-radius: 24px; max-width: 500px; width: 100%; text-align: center;
+            position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        .close-modal { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; cursor: pointer; color: var(--text-sub); }
+        .plans-grid { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
+        .plan-card {
+            background-color: var(--bg-input); border: 1px solid var(--border-color);
+            padding: 16px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .plan-price { font-weight: bold; color: #3b82f6; }
+
+        /* --- BOTÃO FLUTUANTE: DÚVIDAS FREQUENTES --- */
+        .faq-fab {
+            position: fixed;
+            bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px));
+            right: 20px;
+            z-index: 150;
+            background-color: #3b82f6;
+            color: #ffffff;
+            border: none;
+            border-radius: 50px;
+            padding: 14px 18px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 10px 25px -8px rgba(59, 130, 246, 0.6);
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+        .faq-fab:hover { background-color: #2563eb; transform: translateY(-2px); }
+        .faq-fab .faq-fab-icon { font-size: 1.1rem; }
+
+        /* --- MODAL: DÚVIDAS FREQUENTES --- */
+        .faq-modal-content {
+            max-width: 600px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+        }
+        .faq-modal-content h2 { text-align: center; }
+        .faq-modal-content > p { text-align: center; }
+        .faq-list {
+            margin-top: 16px;
+            overflow-y: auto;
+            flex: 1;
+            padding-right: 4px;
+        }
+        .faq-item {
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 4px;
+        }
+        .faq-item:last-child { border-bottom: none; }
+        .faq-item summary {
+            list-style: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-main);
+        }
+        .faq-item summary::-webkit-details-marker { display: none; }
+        .faq-item summary::after {
+            content: '+';
+            flex-shrink: 0;
+            font-size: 1.2rem;
+            line-height: 1;
+            color: var(--text-sub);
+        }
+        .faq-item[open] summary::after { content: '−'; }
+        .faq-item p.faq-answer {
+            margin-top: 8px;
+            color: var(--text-sub);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .faq-contact {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .faq-contact p { color: var(--text-sub); font-size: 0.85rem; margin-bottom: 4px; }
+        .faq-contact strong { color: #3b82f6; word-break: break-all; }
+
+        /* --- CHAT FLUTUANTE: CHROMABOT --- */
+        .chat-fab {
+            position: fixed;
+            bottom: max(72px, calc(env(safe-area-inset-bottom) + 64px));
+            right: 20px;
+            z-index: 150;
+            background-color: #7c3aed;
+            color: #ffffff;
+            border: none;
+            border-radius: 50px;
+            padding: 14px 18px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 10px 25px -8px rgba(124, 58, 237, 0.6);
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+        .chat-fab:hover { background-color: #6d28d9; transform: translateY(-2px); }
+
+        /* Janela do chat (não usa .modal genérico para não sobrepor) */
+        .chat-window {
+            position: fixed;
+            bottom: max(140px, calc(env(safe-area-inset-bottom) + 132px));
+            right: 20px;
+            width: min(380px, calc(100vw - 32px));
+            height: 500px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 149;
+        }
+        .chat-window.open { display: flex; }
+        .chat-header {
+            background-color: #7c3aed;
+            padding: 14px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .chat-header-info { display: flex; align-items: center; gap: 10px; }
+        .chat-avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; flex-shrink: 0;
+        }
+        .chat-header strong { color: #ffffff; font-size: 0.95rem; display: block; }
+        .chat-header span { color: rgba(255,255,255,0.7); font-size: 0.75rem; }
+        .chat-close { background: none; border: none; color: white; font-size: 1.3rem; cursor: pointer; padding: 4px; }
+        .chat-msgs {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background-color: var(--bg-body);
+        }
+        .chat-msg {
+            max-width: 85%;
+            padding: 10px 14px;
+            border-radius: 16px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .chat-msg.usuario {
+            align-self: flex-end;
+            background-color: #7c3aed;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-msg.bot {
+            align-self: flex-start;
+            background-color: var(--bg-card);
+            color: var(--text-main);
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+        .chat-msg.digitando {
+            align-self: flex-start;
+            background-color: var(--bg-card);
+            color: var(--text-sub);
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--border-color);
+            font-style: italic;
+        }
+        .chat-input-row {
+            display: flex;
+            gap: 8px;
+            padding: 12px;
+            background-color: var(--bg-card);
+            border-top: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+        .chat-input-row input {
+            flex: 1;
+            background-color: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px 12px;
+            color: var(--text-main);
+            font-size: 0.9rem;
+            outline: none;
+        }
+        .chat-input-row input:focus { border-color: #7c3aed; }
+        .chat-send {
+            background-color: #7c3aed;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 1rem;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .chat-send:hover { background-color: #6d28d9; }
+        .chat-send:disabled { background-color: var(--bg-input); cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <!-- Filtros Matemáticos SVG para simulação de Daltonismo -->
+    <svg style="position: absolute; width: 0; height: 0;">
+        <defs>
+            <filter id="protanopia-filter">
+                <feColorMatrix type="matrix" values="0.567, 0.433, 0,     0, 0, 0.558, 0.442, 0,     0, 0, 0,     0.242, 0.758, 0, 0, 0,     0,     0,     1, 0"/>
+            </filter>
+            <filter id="deuteranopia-filter">
+                <feColorMatrix type="matrix" values="0.625, 0.375, 0,   0, 0, 0.70,  0.30,  0,   0, 0, 0,     0.30,  0.70, 0, 0, 0,     0,     0,   1, 0"/>
+            </filter>
+            <filter id="tritanopia-filter">
+                <feColorMatrix type="matrix" values="0.95, 0.05,  0,     0, 0, 0,    0.433, 0.567, 0, 0, 0,    0.475, 0.525, 0, 0, 0,    0,     0,     1, 0"/>
+            </filter>
+        </defs>
+    </svg>
+
+    <!-- NAVBAR SUPERIOR -->
+    <nav class="navbar" id="app-navbar">
+        <button class="nav-btn" id="btn-open-left" title="Menu Perfil">☰</button>
+        <div class="nav-title">ChromaVision</div>
+        <button class="nav-btn" id="btn-open-right" title="Configurações">⚙️</button>
+    </nav>
+
+    <!-- MENU ESQUERDO (PERFIL) -->
+    <div class="sidebar" id="menu-esquerdo">
+        <div class="perfil-info">
+            <p>Usuário Ativo</p>
+            <strong id="perfil-email">usuario@provedor.com</strong>
+        </div>
+        <div class="menu-item" id="menu-planos">⭐ Ver Planos / Assinatura</div>
+        <div class="menu-item" id="menu-logout" style="color: #ef4444; margin-top: auto;">🚪 Sair da Conta</div>
+    </div>
+
+    <!-- MENU DIREITO (CONFIGURAÇÕES) -->
+    <div class="sidebar" id="menu-direito">
+        <h3>Ajustes Globais</h3>
+        <div class="config-box">
+            <span>Modo Escuro</span>
+            <button class="toggle-btn" id="toggle-theme">Alternar</button>
+        </div>
+    </div>
+
+    <!-- TELA DE LOGIN -->
+    <div id="tela-login">
+        <div class="header-container">
+            <div class="circulo-cromatico"></div>
+            <h1>ChromaVision</h1>
+            <p class="subtitle">Enxergue o mundo sob novas lentes</p>
+        </div>
+
+        <div class="login-card">
+            <form id="form-login" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="email">E-mail de Acesso</label>
+                    <input type="email" id="email" required placeholder="exemplo@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="password">Senha</label>
+                    <input type="password" id="password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn-principal">Entrar na Plataforma</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- INTERFACE PRINCIPAL DO APP -->
+    <div id="tela-app">
+        <div class="app-card">
+            <!-- Zona Oculta de File Input -->
+            <input type="file" id="file-loader" accept="image/*" style="display: none;" onchange="previewImage(event)">
+            
+            <div class="upload-zone" onclick="document.getElementById('file-loader').click()">
+                <span class="upload-icon">📁</span>
+                <p>Clique aqui para carregar sua imagem</p>
+            </div>
+
+            <div class="filter-grid">
+                <button class="btn-filter" onclick="applyFilter('protanopia', this)">Protanopia (Sem Vermelho)</button>
+                <button class="btn-filter" onclick="applyFilter('deuteranopia', this)">Deuteranopia (Sem Verde)</button>
+                <button class="btn-filter" onclick="applyFilter('tritanopia', this)">Tritanopia (Sem Azul)</button>
+                <button class="btn-filter" onclick="applyFilter('daltonize', this)">Correção (Daltonize)</button>
+                <button class="btn-filter btn-reset" onclick="applyFilter('none', this)">Remover Filtros</button>
+            </div>
+
+            <div class="preview-box">
+                <p class="placeholder-text" id="preview-placeholder">Nenhuma imagem carregada no sistema.</p>
+                <img id="image-render" alt="Visualização de Acessibilidade">
+                <div class="processing-overlay" id="processing-overlay">Processando correção de cores...</div>
+            </div>
+            <canvas id="processing-canvas" style="display: none;"></canvas>
+
+            <!-- PAINEL DE ANÁLISE DE CORES -->
+            <div class="color-analysis-panel" id="color-analysis-panel">
+                <div class="color-analysis-title">🎨 Análise de Cores da Imagem</div>
+                <div class="color-swatches" id="color-swatches"></div>
+                <div class="ai-legenda">
+                    <div class="ai-legenda-label">🤖 ChromaBot diz:</div>
+                    <div id="ai-legenda-texto">
+                        <div class="ai-legenda-loading">
+                            <div class="spinner"></div>
+                            <span>Analisando a imagem...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE ASSINATURAS -->
+    <div class="modal" id="modal-assinatura">
+        <div class="modal-content">
+            <span class="close-modal" id="close-modal-btn">&times;</span>
+            <h2>Planos ChromaVision Pro</h2>
+            <p style="color: var(--text-sub); margin-top: 8px;">Desbloqueie processamento em tempo real e filtros customizados.</p>
+            
+            <div class="plans-grid">
+                <div class="plan-card">
+                    <div>
+                        <strong>Mensal</strong>
+                        <p style="font-size: 0.8rem; color: var(--text-sub);">Cancele quando quiser</p>
+                    </div>
+                    <span class="plan-price">R$ 14,90/mês</span>
+                </div>
+                <div class="plan-card" style="border-color: #3b82f6;">
+                    <div>
+                        <strong>Anual ✨</strong>
+                        <p style="font-size: 0.8rem; color: var(--text-sub);">Melhor custo-benefício</p>
+                    </div>
+                    <span class="plan-price">R$ 9,90/mês</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTÃO FLUTUANTE: CHROMABOT (CHAT IA) -->
+    <button class="chat-fab" id="btn-chat" title="ChromaBot - Assistente IA">
+        <span>🤖</span>
+        <span>ChromaBot</span>
+    </button>
+
+    <!-- JANELA DO CHAT -->
+    <div class="chat-window" id="chat-window">
+        <div class="chat-header">
+            <div class="chat-header-info">
+                <div class="chat-avatar">🎨</div>
+                <div>
+                    <strong>ChromaBot</strong>
+                    <span>Assistente Virtual</span>
+                </div>
+            </div>
+            <button class="chat-close" id="chat-close-btn" title="Fechar">✕</button>
+        </div>
+        <div class="chat-msgs" id="chat-msgs">
+            <div class="chat-msg bot">Olá! Sou a ChromaBot 👋 Pode me perguntar sobre daltonismo, sobre o app ou como usar os filtros!</div>
+        </div>
+        <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="Digite sua pergunta..." maxlength="500" onkeydown="if(event.key==='Enter') chatEnviar()">
+            <button class="chat-send" id="chat-send-btn" onclick="chatEnviar()">➤</button>
+        </div>
+    </div>
+
+    <!-- BOTÃO FLUTUANTE: DÚVIDAS FREQUENTES -->
+    <button class="faq-fab" id="btn-faq" title="Dúvidas Frequentes">
+        <span class="faq-fab-icon">❓</span>
+        <span>Dúvidas frequentes</span>
+    </button>
+
+    <!-- MODAL: DÚVIDAS FREQUENTES -->
+    <div class="modal" id="modal-faq">
+        <div class="modal-content faq-modal-content">
+            <span class="close-modal" id="close-faq-btn">&times;</span>
+            <h2>Dúvidas Frequentes</h2>
+            <p style="color: var(--text-sub); margin-top: 8px;">Tudo o que você precisa saber sobre o ChromaVision e sobre daltonismo.</p>
+
+            <div class="faq-list">
+                <details class="faq-item">
+                    <summary>1. O que é o ChromaVision?</summary>
+                    <p class="faq-answer">É um aplicativo desenvolvido para promover acessibilidade visual para pessoas com daltonismo.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>2. O ChromaVision é gratuito?</summary>
+                    <p class="faq-answer">Sim, existe uma versão gratuita com funcionalidades essenciais.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>3. O aplicativo funciona em Android?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>4. O aplicativo funciona em iPhone?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>5. O ChromaVision precisa de internet?</summary>
+                    <p class="faq-answer">As funções básicas podem funcionar sem internet.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>6. O aplicativo realiza diagnóstico de daltonismo?</summary>
+                    <p class="faq-answer">Não. O aplicativo não substitui avaliação médica.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>7. O que é daltonismo?</summary>
+                    <p class="faq-answer">É uma alteração na percepção das cores.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>8. O daltonismo tem cura?</summary>
+                    <p class="faq-answer">Na maioria dos casos, não.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>9. O daltonismo é hereditário?</summary>
+                    <p class="faq-answer">Sim, geralmente possui origem genética.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>10. Apenas homens podem ser daltônicos?</summary>
+                    <p class="faq-answer">Não, mas a condição é mais comum em homens.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>11. Quais tipos de daltonismo existem?</summary>
+                    <p class="faq-answer">Protanopia, Deuteranopia, Tritanopia e outras variações.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>12. O que é Protanopia?</summary>
+                    <p class="faq-answer">É a dificuldade em perceber tons vermelhos.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>13. O que é Deuteranopia?</summary>
+                    <p class="faq-answer">É a dificuldade em perceber tons verdes.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>14. O que é Tritanopia?</summary>
+                    <p class="faq-answer">É a dificuldade em perceber tons azuis.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>15. Como funciona a simulação de cores?</summary>
+                    <p class="faq-answer">O aplicativo aplica filtros que reproduzem diferentes percepções visuais.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>16. Posso carregar imagens da galeria?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>17. Posso tirar fotos diretamente pelo aplicativo?</summary>
+                    <p class="faq-answer">Sim, quando a função de câmera estiver habilitada.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>18. Minha foto original é alterada?</summary>
+                    <p class="faq-answer">Não.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>19. O aplicativo salva minhas imagens?</summary>
+                    <p class="faq-answer">Somente quando autorizado pelo usuário.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>20. Posso compartilhar imagens analisadas?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>21. O ChromaVision identifica cores?</summary>
+                    <p class="faq-answer">Sim, em versões que possuem essa funcionalidade.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>22. O aplicativo ajuda designers?</summary>
+                    <p class="faq-answer">Sim, permitindo avaliar a acessibilidade de projetos visuais.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>23. O aplicativo ajuda professores?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>24. O aplicativo ajuda empresas?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>25. Posso usar o ChromaVision para estudos?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>26. O aplicativo possui modo escuro?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>27. O aplicativo possui recursos de acessibilidade?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>28. O que é acessibilidade visual?</summary>
+                    <p class="faq-answer">É a adaptação de conteúdos para facilitar a compreensão por diferentes usuários.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>29. Quantas pessoas possuem daltonismo?</summary>
+                    <p class="faq-answer">Milhões de pessoas em todo o mundo convivem com a condição.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>30. O aplicativo corrige o daltonismo?</summary>
+                    <p class="faq-answer">Não corrige a condição em si, mas o recurso "Correção (Daltonize)" ajusta as cores da imagem para facilitar a distinção entre tons que costumam ser confundidos.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>31. Posso usar o aplicativo no trabalho?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>32. Posso usar o aplicativo na escola?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>33. O aplicativo funciona em tablets?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>34. O aplicativo consome muita bateria?</summary>
+                    <p class="faq-answer">O consumo é semelhante ao de aplicativos de imagem.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>35. O aplicativo coleta dados pessoais?</summary>
+                    <p class="faq-answer">Somente os necessários para o funcionamento da plataforma.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>36. Como posso criar uma conta?</summary>
+                    <p class="faq-answer">Através da tela de cadastro.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>37. Posso recuperar minha senha?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>38. Posso alterar meu perfil?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>39. O aplicativo possui assinatura premium?</summary>
+                    <p class="faq-answer">Pode oferecer recursos avançados através de planos premium.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>40. Quais vantagens da versão premium?</summary>
+                    <p class="faq-answer">Mais filtros, recursos avançados e armazenamento ampliado.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>41. O aplicativo recebe atualizações?</summary>
+                    <p class="faq-answer">Sim, periodicamente.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>42. Como enviar sugestões?</summary>
+                    <p class="faq-answer">Pela área de contato ou feedback.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>43. Como reportar um erro?</summary>
+                    <p class="faq-answer">Pelo suporte do aplicativo.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>44. O ChromaVision é indicado para crianças?</summary>
+                    <p class="faq-answer">Sim, com acompanhamento de responsáveis quando necessário.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>45. O aplicativo pode ser usado por pessoas sem daltonismo?</summary>
+                    <p class="faq-answer">Sim.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>46. Como tornar um design mais acessível?</summary>
+                    <p class="faq-answer">Evite depender exclusivamente de cores para transmitir informações.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>47. Por que vermelho e verde costumam causar confusão?</summary>
+                    <p class="faq-answer">Porque são as cores mais afetadas nos tipos mais comuns de daltonismo.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>48. O aplicativo ajuda na conscientização sobre daltonismo?</summary>
+                    <p class="faq-answer">Sim, esse é um dos seus principais objetivos.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>49. O ChromaVision substitui consultas médicas?</summary>
+                    <p class="faq-answer">Não.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>50. Qual é a missão do ChromaVision?</summary>
+                    <p class="faq-answer">Promover inclusão, acessibilidade visual e conscientização sobre o daltonismo através da tecnologia.</p>
+                </details>
+            </div>
+
+            <div class="faq-contact">
+                <p>Ainda com dúvidas? Entre em contato:</p>
+                <strong>ChromaVision.project@gmail.com</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOTOR LOGIC DE COMPORTAMENTO (JAVASCRIPT) -->
+    <script>
+        // --- GERENCIAMENTO DE TELAS E LOGIN ---
+        function handleLogin(event) {
+            event.preventDefault();
+            const emailInput = document.getElementById('email').value;
+            
+            // Define o e-mail no painel lateral
+            document.getElementById('perfil-email').innerText = emailInput;
+
+            // Transição visual de telas
+            document.getElementById('tela-login').style.display = 'none';
+            document.getElementById('app-navbar').style.display = 'flex';
+            document.getElementById('tela-app').style.display = 'block';
+            
+            // Limpa o formulário de login por segurança
+            document.getElementById('form-login').reset();
+        }
+
+        // --- SISTEMA DE SIDEBARS ---
+        const menuEsquerdo = document.getElementById('menu-esquerdo');
+        const menuDireito = document.getElementById('menu-direito');
+
+        document.getElementById('btn-open-left').addEventListener('click', (e) => {
+            e.stopPropagation();
+            menuEsquerdo.classList.toggle('open');
+            menuDireito.classList.remove('open');
+        });
+
+        document.getElementById('btn-open-right').addEventListener('click', (e) => {
+            e.stopPropagation();
+            menuDireito.classList.toggle('open');
+            menuEsquerdo.classList.remove('open');
+        });
+
+        // Fecha os menus ao clicar em qualquer lugar vazio na tela
+        document.addEventListener('click', () => {
+            menuEsquerdo.classList.remove('open');
+            menuDireito.classList.remove('open');
+        });
+        menuEsquerdo.addEventListener('click', (e) => e.stopPropagation());
+        menuDireito.addEventListener('click', (e) => e.stopPropagation());
+
+        // --- CONTROLE DE LOGOUT ---
+        document.getElementById('menu-logout').addEventListener('click', () => {
+            document.getElementById('tela-app').style.display = 'none';
+            document.getElementById('app-navbar').style.display = 'none';
+            document.getElementById('tela-login').style.display = 'flex';
+            menuEsquerdo.classList.remove('open');
+            applyFilter('none', document.querySelector('.btn-reset'));
+            
+            // Reseta a imagem carregada
+            const img = document.getElementById('image-render');
+            const placeholder = document.getElementById('preview-placeholder');
+            img.src = '';
+            img.style.display = 'none';
+            placeholder.style.display = 'block';
+            originalImageSrc = null;
+
+            // Oculta painel de análise de cores
+            document.getElementById('color-analysis-panel').classList.remove('visible');
+        });
+
+        // --- MUDANÇA DE TEMA (DARK/LIGHT) ---
+        document.getElementById('toggle-theme').addEventListener('click', () => {
+            document.body.classList.toggle('light-mode');
+        });
+
+        // --- SISTEMA DE MODAL ---
+        const modal = document.getElementById('modal-assinatura');
+        document.getElementById('menu-planos').addEventListener('click', () => {
+            modal.style.display = 'flex';
+            menuEsquerdo.classList.remove('open');
+        });
+        document.getElementById('close-modal-btn').addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) modal.style.display = 'none';
+        });
+
+        // --- MODAL: DÚVIDAS FREQUENTES ---
+        const modalFaq = document.getElementById('modal-faq');
+        document.getElementById('btn-faq').addEventListener('click', () => {
+            modalFaq.style.display = 'flex';
+        });
+        document.getElementById('close-faq-btn').addEventListener('click', () => {
+            modalFaq.style.display = 'none';
+        });
+        window.addEventListener('click', (e) => {
+            if (e.target === modalFaq) modalFaq.style.display = 'none';
+        });
+
+        // --- UPLOAD DE IMAGEM E PREVIEW ---
+        let originalImageSrc = null; // guarda a imagem original (sem filtros) para o Daltonize e o "Remover Filtros"
+        let daltonizeProcessing = false;
+
+        function previewImage(event) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                const img = document.getElementById('image-render');
+                const placeholder = document.getElementById('preview-placeholder');
+
+                originalImageSrc = reader.result;
+                img.src = reader.result;
+                img.style.display = 'block';
+                placeholder.style.display = 'none';
+
+                // Limpa qualquer filtro/estado anterior ao carregar uma nova imagem
+                img.classList.remove('protanopia', 'deuteranopia', 'tritanopia');
+                document.querySelectorAll('.btn-filter').forEach(btn => btn.classList.remove('active'));
+
+                // Dispara análise de cores após a imagem carregar
+                img.onload = () => analisarCores(img);
+            }
+            if(event.target.files[0]) {
+                reader.readAsDataURL(event.target.files[0]);
+            }
+        }
+
+        // --- ANÁLISE DE CORES DA IMAGEM ---
+
+        // Mapa de nomes de cores em português
+        const NOMES_CORES = [
+            { nome: "Vermelho",   r: [180,255], g: [0,80],   b: [0,80]   },
+            { nome: "Laranja",    r: [200,255], g: [80,160],  b: [0,60]   },
+            { nome: "Amarelo",    r: [200,255], g: [180,255], b: [0,80]   },
+            { nome: "Verde",      r: [0,120],   g: [130,255], b: [0,120]  },
+            { nome: "Azul",       r: [0,100],   g: [0,120],   b: [130,255]},
+            { nome: "Roxo",       r: [80,180],  g: [0,80],    b: [130,255]},
+            { nome: "Rosa",       r: [200,255], g: [80,160],  b: [130,220]},
+            { nome: "Marrom",     r: [100,180], g: [50,120],  b: [0,70]   },
+            { nome: "Preto",      r: [0,60],    g: [0,60],    b: [0,60]   },
+            { nome: "Branco",     r: [200,255], g: [200,255], b: [200,255]},
+            { nome: "Cinza",      r: [60,180],  g: [60,180],  b: [60,180] },
+            { nome: "Ciano",      r: [0,80],    g: [180,255], b: [180,255]},
+            { nome: "Bege",       r: [200,255], g: [180,230], b: [140,200]},
+        ];
+
+        function classificarCor(r, g, b) {
+            for (const cor of NOMES_CORES) {
+                if (r >= cor.r[0] && r <= cor.r[1] &&
+                    g >= cor.g[0] && g <= cor.g[1] &&
+                    b >= cor.b[0] && b <= cor.b[1]) {
+                    return cor.nome;
+                }
+            }
+            return "Outra";
+        }
+
+        function rgbParaHex(r, g, b) {
+            return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+        }
+
+        function analisarCores(imgElement) {
+            const canvas = document.createElement('canvas');
+            const MAX = 120; // resolução reduzida para agilizar
+            const escala = Math.min(MAX / imgElement.naturalWidth, MAX / imgElement.naturalHeight, 1);
+            canvas.width  = Math.round(imgElement.naturalWidth  * escala);
+            canvas.height = Math.round(imgElement.naturalHeight * escala);
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
+
+            const dados = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            const contagem = {};
+            const exemplos = {};
+
+            // Amostra 1 em cada 4 pixels para agilizar
+            for (let i = 0; i < dados.length; i += 16) {
+                const r = dados[i], g = dados[i+1], b = dados[i+2], a = dados[i+3];
+                if (a < 128) continue; // ignora pixels transparentes
+                const nome = classificarCor(r, g, b);
+                contagem[nome] = (contagem[nome] || 0) + 1;
+                if (!exemplos[nome]) exemplos[nome] = { r, g, b };
+            }
+
+            // Ordena por frequência, pega top 5
+            const total = Object.values(contagem).reduce((a, b) => a + b, 0);
+            const top = Object.entries(contagem)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([nome, qtd]) => ({
+                    nome,
+                    pct: Math.round((qtd / total) * 100),
+                    hex: rgbParaHex(exemplos[nome].r, exemplos[nome].g, exemplos[nome].b)
+                }));
+
+            exibirSwatches(top);
+            buscarLegendaIA(top);
+        }
+
+        function exibirSwatches(cores) {
+            const painel   = document.getElementById('color-analysis-panel');
+            const swatches = document.getElementById('color-swatches');
+            const legenda  = document.getElementById('ai-legenda-texto');
+
+            swatches.innerHTML = '';
+            cores.forEach(cor => {
+                const div = document.createElement('div');
+                div.className = 'color-swatch';
+                div.innerHTML = `
+                    <div class="swatch-dot" style="background-color:${cor.hex}"></div>
+                    <div class="swatch-info">
+                        <div class="swatch-name">${cor.nome}</div>
+                        <div class="swatch-pct">${cor.pct}%</div>
+                    </div>`;
+                swatches.appendChild(div);
+            });
+
+            // Mostra spinner enquanto IA responde
+            legenda.innerHTML = `<div class="ai-legenda-loading"><div class="spinner"></div><span>ChromaBot analisando...</span></div>`;
+            painel.classList.add('visible');
+        }
+
+        async function buscarLegendaIA(cores) {
+            const legenda = document.getElementById('ai-legenda-texto');
+            const listaCores = cores.map(c => `${c.nome} (${c.pct}%)`).join(', ');
+            const pergunta = `Uma imagem foi carregada com as seguintes cores: ${listaCores}. Explique como uma pessoa com visão normal enxerga a cor predominante e como ela pode ser percebida por pessoas com protanopia, deuteranopia ou tritanopia. Máximo 3 frases.`;
+            try {
+                const resp = await fetch(`/api/chat`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pergunta }),
+                    signal: AbortSignal.timeout(30000)
+                });
+                const dados = await resp.json();
+                if (dados.resposta) {
+                    legenda.textContent = dados.resposta;
+                } else {
+                    throw new Error("sem resposta");
+                }
+            } catch {
+                // Fallback sem IA — descrição básica da visão normal
+                const principal = cores[0];
+                const descricoes = {
+                    "Vermelho": "cor quente e intensa, associada a energia e alerta",
+                    "Laranja": "cor vibrante, associada a criatividade e entusiasmo",
+                    "Amarelo": "cor luminosa e alegre, associada a atenção e otimismo",
+                    "Verde": "cor natural, associada a natureza, saúde e equilíbrio",
+                    "Azul": "cor fria e tranquila, associada a confiança e serenidade",
+                    "Roxo": "cor nobre, associada a criatividade e mistério",
+                    "Rosa": "cor suave, associada a delicadeza e afeto",
+                    "Marrom": "cor terrosa, associada a estabilidade e naturalidade",
+                    "Preto": "ausência de luz, associado a elegância e sofisticação",
+                    "Branco": "presença de toda luz, associado a pureza e clareza",
+                    "Cinza": "tom neutro, associado a equilíbrio e discrição",
+                    "Ciano": "tom fresco e moderno, associado a clareza e leveza",
+                    "Bege": "tom suave e neutro, associado a calma e sofisticação"
+                };
+                const desc = descricoes[principal.nome] || "cor de presença marcante na imagem";
+                legenda.textContent = `A cor predominante é ${principal.nome} (${principal.pct}%), uma ${desc}.`;
+            }
+        }
+
+        // --- APLICAÇÃO DOS FILTROS DE DALTONISMO ---
+        function applyFilter(filterName, buttonClicked) {
+            const img = document.getElementById('image-render');
+
+            if (!originalImageSrc || daltonizeProcessing) return;
+
+            // Remove qualquer classe de filtro SVG existente
+            img.classList.remove('protanopia', 'deuteranopia', 'tritanopia');
+
+            // Remove o estado ativo de todos os botões da grid
+            document.querySelectorAll('.btn-filter').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            if (filterName === 'none') {
+                // Volta para a imagem original (desfaz inclusive o Daltonize, que é destrutivo)
+                img.src = originalImageSrc;
+                document.querySelector('.btn-reset').classList.add('active');
+                setTimeout(() => {
+                    document.querySelector('.btn-reset').classList.remove('active');
+                }, 300);
+                return;
+            }
+
+            if (filterName === 'daltonize') {
+                if (buttonClicked) buttonClicked.classList.add('active');
+                runDaltonize();
+                return;
+            }
+
+            // Filtros de simulação (SVG), sempre aplicados a partir da imagem original
+            img.src = originalImageSrc;
+            img.classList.add(filterName);
+            if (buttonClicked) buttonClicked.classList.add('active');
+        }
+
+        // --- DALTONIZE: CORREÇÃO DE CORES PARA DALTÔNICOS ---
+        // Realça, na própria imagem, as diferenças de cor (geralmente vermelho/verde)
+        // que ficam difíceis de distinguir, redistribuindo-as para o eixo azul-amarelo.
+        // Baseado no algoritmo de Fidaner, Lin & Ozguven, sobre a simulação de
+        // Vienot, Brettel & Mollon (1999) para deuteranopia.
+        function runDaltonize() {
+            if (daltonizeProcessing) return;
+
+            const img = document.getElementById('image-render');
+            const overlay = document.getElementById('processing-overlay');
+            const canvas = document.getElementById('processing-canvas');
+
+            daltonizeProcessing = true;
+            overlay.style.display = 'flex';
+
+            const source = new Image();
+            source.onload = function() {
+                const MAX_DIM = 1600; // limite para manter o processamento rápido em celulares
+                let width = source.naturalWidth;
+                let height = source.naturalHeight;
+                if (width > MAX_DIM || height > MAX_DIM) {
+                    const scale = MAX_DIM / Math.max(width, height);
+                    width = Math.round(width * scale);
+                    height = Math.round(height * scale);
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(source, 0, 0, width, height);
+
+                // Pequeno delay para a sobreposição "Processando..." renderizar antes do trabalho pesado
+                setTimeout(() => {
+                    try {
+                        const imageData = ctx.getImageData(0, 0, width, height);
+                        daltonizePixels(imageData.data);
+                        ctx.putImageData(imageData, 0, 0);
+                        img.src = canvas.toDataURL('image/png');
+                    } catch (err) {
+                        console.error('Erro ao aplicar o Daltonize:', err);
+                    } finally {
+                        overlay.style.display = 'none';
+                        daltonizeProcessing = false;
+                    }
+                }, 50);
+            };
+            source.src = originalImageSrc;
+        }
+
+        // Aplica a correção pixel a pixel sobre um array RGBA (ImageData.data)
+        function daltonizePixels(pixels) {
+            for (let i = 0; i < pixels.length; i += 4) {
+                const R = pixels[i];
+                const G = pixels[i + 1];
+                const B = pixels[i + 2];
+
+                // RGB -> LMS (espaço que aproxima a resposta dos cones do olho)
+                const L = 17.8824 * R + 43.5161 * G + 4.11935 * B;
+                const M = 3.45565 * R + 27.1554 * G + 3.86714 * B;
+                const S = 0.0299566 * R + 0.184309 * G + 1.46709 * B;
+
+                // Simula a deuteranopia (perda do cone "M") no espaço LMS
+                const l = L;
+                const m = 0.494207 * L + 1.24827 * S;
+                const s = S;
+
+                // LMS simulado -> RGB
+                const simR = 0.0809444479 * l - 0.130504409 * m + 0.116721066 * s;
+                const simG = -0.0102485335 * l + 0.0540193266 * m - 0.113614708 * s;
+                const simB = -0.000365296938 * l - 0.00412161469 * m + 0.693511405 * s;
+
+                // Diferença entre a cor original e a percebida (informação "perdida")
+                const errR = R - simR;
+                const errG = G - simG;
+                const errB = B - simB;
+
+                // Redistribui o erro do canal vermelho para verde/azul
+                const corrG = 0.7 * errR + errG;
+                const corrB = 0.7 * errR + errB;
+
+                pixels[i] = clampColor(R);
+                pixels[i + 1] = clampColor(G + corrG);
+                pixels[i + 2] = clampColor(B + corrB);
+                // pixels[i + 3] (alfa/transparência) permanece inalterado
+            }
+        }
+
+        function clampColor(value) {
+            return value < 0 ? 0 : value > 255 ? 255 : value;
+        }
+
+        // --- CHROMABOT: CHAT FLUTUANTE DE IA ---
+        const CHAT_SERVIDOR = "";
+        const AI_API_URL = "/api/chat";
+
+        const CHAT_SYSTEM = ""; // sistema gerenciado pelo servidor
+
+        // Chave armazenada localmente — nunca exposta no código
+        let OPENAI_KEY = "";
+
+        const chatWindow  = document.getElementById("chat-window");
+        const chatMsgs    = document.getElementById("chat-msgs");
+        const chatInput   = document.getElementById("chat-input");
+        const chatSendBtn = document.getElementById("chat-send-btn");
+
+        document.getElementById("btn-chat").addEventListener("click", (e) => {
+            e.stopPropagation();
+            chatWindow.classList.toggle("open");
+            if (chatWindow.classList.contains("open")) chatInput.focus();
+        });
+
+        document.getElementById("chat-close-btn").addEventListener("click", () => {
+            chatWindow.classList.remove("open");
+        });
+
+        chatWindow.addEventListener("click", (e) => e.stopPropagation());
+
+        function chatAdicionarMsg(texto, tipo) {
+            const div = document.createElement("div");
+            div.className = `chat-msg ${tipo}`;
+            div.textContent = texto;
+            chatMsgs.appendChild(div);
+            chatMsgs.scrollTop = chatMsgs.scrollHeight;
+            return div;
+        }
+
+        async function chatEnviar() {
+            const pergunta = chatInput.value.trim();
+            if (!pergunta || chatSendBtn.disabled) return;
+            chatAdicionarMsg(pergunta, "usuario");
+            chatInput.value = "";
+            chatSendBtn.disabled = true;
+            const msgDigitando = chatAdicionarMsg("ChromaBot está digitando...", "digitando");
+            try {
+                const resp = await fetch(`/api/chat`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pergunta }),
+                    signal: AbortSignal.timeout(30000)
+                });
+                const dados = await resp.json();
+                msgDigitando.remove();
+                chatAdicionarMsg(dados.resposta || "⚠️ Sem resposta. Tente novamente.", "bot");
+            } catch {
+                msgDigitando.remove();
+                chatAdicionarMsg("⚠️ Erro de conexão. Verifique sua internet.", "bot");
+            } finally {
+                chatSendBtn.disabled = false;
+                chatInput.focus();
+            }
+        }
+
+        // --- REGISTRO DO SERVICE WORKER (PWA: funcionamento offline) ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js').catch(() => {
+                    /* falha silenciosa caso esteja fora de um servidor http(s) */
+                });
+            });
+        }
+    </script>
+</body>
+</html>
